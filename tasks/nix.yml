@@ -103,6 +103,16 @@
       delegate_to: localhost
       when: consul_raw_key is defined
 
+    - name: Check if gossip key file exists
+      stat:
+        path: '/tmp/consul_raw.key'
+      delegate_to: localhost
+      become: false
+      vars:
+        ansible_become: false
+      run_once: true
+      register: consul_key_file_stat
+
     # Generate new key if none was found
     - block:
         - name: Generate gossip encryption key
@@ -121,7 +131,7 @@
       no_log: true
       run_once: true
       when:
-        - not consul_local_key.changed
+        - not consul_key_file_stat.stat.exists
         - not bootstrap_state.stat.exists | bool
 
     - name: Read gossip encryption key for servers that require it
