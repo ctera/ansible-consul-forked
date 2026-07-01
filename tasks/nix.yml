@@ -102,73 +102,51 @@
           no_log: true
           when: consul_config is defined
 
-    - name: Create temporary file for raw gossip encryption key
-      delegate_to: localhost
-      ansible.builtin.tempfile:
-        suffix: .key
-      become: false
-      vars:
-        ansible_become: false
-      run_once: true
-      changed_when: false
-      check_mode: false
-      register: consul_raw_key_file
-
-    # Key provided by extra vars or the above block
     - name: Write gossip encryption key locally for use with new servers
       ansible.builtin.copy:
         content: "{{ consul_raw_key }}"
-        dest: "{{ consul_raw_key_file.path }}"
+        dest: '/tmp/consul_raw.key'
         mode: "0600"
       become: false
       vars:
         ansible_become: false
+      no_log: true
       delegate_to: localhost
-      run_once: true
       changed_when: false
       when: consul_raw_key is defined
 
     - name: Generate new gossip encryption key if none was found
       run_once: true
+      no_log: true
       when:
         - consul_raw_key is not defined
         - not bootstrap_state.stat.exists | bool
+        - lookup('first_found', dict(files=['/tmp/consul_raw.key'], skip=true)) | ternary(false, true)
       block:
-        - name: Create temporary file to receive gossip encryption key
-          become: false
-          ansible.builtin.tempfile:
-            state: file
-          register: gossip_key_tempfile
-
-        - name: Generate gossip encryption key # noqa no-changed-when
-          become: false
-          ansible.builtin.shell: PATH={{ consul_bin_path }}:$PATH consul keygen > {{ gossip_key_tempfile.path }}
+        - name: Generate gossip encryption key
+          ansible.builtin.shell: "PATH={{ consul_bin_path }}:$PATH consul keygen"
           register: consul_keygen
+          changed_when: false
 
-        - name: Fetch key locally to share with other nodes
+        - name: Write key locally to share with other nodes
+          ansible.builtin.copy:
+            content: "{{ consul_keygen.stdout }}"
+            dest: '/tmp/consul_raw.key'
+            mode: "0600"
           become: false
-          ansible.builtin.fetch:
-            src: "{{ gossip_key_tempfile.path }}"
-            dest: "{{ consul_raw_key_file.path }}"
-            flat: true
-
-      always:
-        - name: Clean up temporary file
-          become: false
-          ansible.builtin.file:
-            path: "{{ gossip_key_tempfile.path }}"
-            state: absent
-          when: gossip_key_tempfile is defined
+          vars:
+            ansible_become: false
+          delegate_to: localhost
 
     - name: Read gossip encryption key for servers that require it
       ansible.builtin.set_fact:
-        consul_raw_key: "{{ lookup('file', consul_raw_key_file.path) }}"
+        consul_raw_key: "{{ lookup('file', '/tmp/consul_raw.key') }}"
       no_log: true
       when: consul_raw_key is not defined
 
     - name: Delete gossip encryption key file
       ansible.builtin.file:
-        path: "{{ consul_raw_key_file.path }}"
+        path: '/tmp/consul_raw.key'
         state: absent
       become: false
       vars:
