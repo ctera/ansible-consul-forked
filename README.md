@@ -1,12 +1,12 @@
 # Consul
 
-![Molecule](https://github.com/ansible-community/ansible-consul/workflows/Molecule/badge.svg?branch=master&event=pull_request)
-[![Average time to resolve an issue](http://isitmaintained.com/badge/resolution/ansible-community/ansible-consul.svg)](http://isitmaintained.com/project/ansible-community/ansible-consul "Average time to resolve an issue")
-[![Percentage of issues still open](http://isitmaintained.com/badge/open/ansible-community/ansible-consul.svg)](http://isitmaintained.com/project/ansible-community/ansible-consul "Percentage of issues still open")
+[![Molecule](https://github.com/ansible-collections/ansible-consul/workflows/Molecule/badge.svg?branch=master)](https://github.com/ansible-collections/ansible-consul/actions?query=branch%3Amaster)
+[![Average time to resolve an issue](http://isitmaintained.com/badge/resolution/ansible-collections/ansible-consul.svg)](http://isitmaintained.com/project/ansible-collections/ansible-consul "Average time to resolve an issue")
+[![Percentage of issues still open](http://isitmaintained.com/badge/open/ansible-collections/ansible-consul.svg)](http://isitmaintained.com/project/ansible-collections/ansible-consul "Percentage of issues still open")
 
 This Ansible role installs [Consul](https://consul.io/), including establishing a filesystem structure and server or client agent configuration with support for some common operational features.
 
-It can also bootstrap a development or evaluation cluster of 3 server agents running in a Vagrant and VirtualBox based environment. See [README_VAGRANT.md](https://github.com/ansible-community/ansible-consul/blob/master/examples/README_VAGRANT.md) and the associated [Vagrantfile](https://github.com/ansible-community/ansible-consul/blob/master/examples/Vagrantfile) for more details.
+It can also bootstrap a development or evaluation cluster of 3 server agents running in a Vagrant and VirtualBox based environment. See [README_VAGRANT.md](https://github.com/ansible-collections/ansible-consul/blob/master/examples/README_VAGRANT.md) and the associated [Vagrantfile](https://github.com/ansible-collections/ansible-consul/blob/master/examples/Vagrantfile) for more details.
 
 ## Role Philosophy
 
@@ -20,11 +20,11 @@ Many users have expressed that the Vagrant based environment makes getting a wor
 If you get some mileage from it in other ways, then all the better!
 
 ## Role migration and installation
-This role was originally developed by Brian Shumate and was known on Ansible Galaxy as **brianshumate.consul**. Brian asked the community to be relieved of the maintenance burden, and therefore Bas Meijer transferred the role to **ansible-community** so that a team of volunteers can maintain it. At the moment there is no membership of ansible-community on https://galaxy.ansible.com and therefore to install this role into your project you should create a file `requirements.yml` in the subdirectory `roles/` of your project with this content:
+This role was originally developed by Brian Shumate and was known on Ansible Galaxy as **brianshumate.consul**. Brian asked the community to be relieved of the maintenance burden, and therefore Bas Meijer transferred the role to **ansible-collections** so that a team of volunteers can maintain it. To install this role into your project you should create a file `requirements.yml` in the subdirectory `roles/` of your project with this content:
 
 ```
 ---
-- src: https://github.com/ansible-community/ansible-consul.git
+- src: https://github.com/ansible-collections/ansible-consul.git
   name: ansible-consul
   scm: git
   version: master
@@ -46,10 +46,12 @@ The role might work with other OS distributions and versions, but is known to fu
 
 * Consul: 1.8.7
 * Ansible: 2.8.2
+* Alma Linux: 8, 9
 * Alpine Linux: 3.8
 * CentOS: 7, 8
 * Debian: 9
 * FreeBSD: 11
+* Mac OS X: 10.15 (Catalina)
 * RHEL: 7, 8
 * Rocky Linux: 8
 * OracleLinux: 7, 8
@@ -59,6 +61,12 @@ The role might work with other OS distributions and versions, but is known to fu
 Note that for the "local" installation mode (the default), this role will locally download only one instance of the Consul archive, unzip it and install the resulting binary on all desired Consul hosts.
 
 To do so requires that `unzip` is available on the Ansible control host and the role will fail if it doesn't detect `unzip` in the PATH.
+
+Collection requirements for this role are listed in the [`requirements.yml`](requirements.yml) file. It is your responsibility to make sure that you install these collections to ensure that the role runs properly. Usually, this can be done with:
+
+```
+ansible-galaxy collection install -r requirements.yml
+```
 
 ## Caveats
 
@@ -400,6 +408,7 @@ consul_node_meta:
     https: "{{ consul_addresses_https | default(consul_client_address, true) }}"
     rpc: "{{ consul_addresses_rpc | default(consul_client_address, true) }}"
     grpc: "{{ consul_addresses_grpc | default(consul_client_address, true) }}"
+    grpc_tls: "{{ consul_addresses_grpc_tls | default(consul_client_address, true) }}"
   ```
 
 ### `consul_ports`
@@ -411,6 +420,7 @@ consul_node_meta:
   - https - The HTTPS API, -1 to disable. Default -1 (disabled).
   - rpc - The CLI RPC endpoint. Default 8400. This is deprecated in Consul 0.8 and later.
   - grpc - The gRPC endpoint, -1 to disable. Default -1 (disabled).
+  - grpc_tls - The gRPC TLS endpoint, -1 to disable. Default -1 (disabled). This is available in Consul 1.14.0 and later.
   - serf_lan - The Serf LAN port. Default 8301.
   - serf_wan - The Serf WAN port. Default 8302.
   - server - Server RPC address. Default 8300.
@@ -428,6 +438,7 @@ For example, to enable the consul HTTPS API it is possible to set the variable a
     serf_wan: "{{ consul_ports_serf_wan | default('8302', true) }}"
     server: "{{ consul_ports_server | default('8300', true) }}"
     grpc: "{{ consul_ports_grpc | default('-1', true) }}"
+    grpc_tls: "{{ consul_ports_grpc_tls | default('-1', true) }}"
 ```
 
 Notice that the dict object has to use precisely the names stated in the documentation! And all ports must be specified. Overwriting one or multiple ports can be done using the `consul_ports_*` variables.
@@ -636,7 +647,8 @@ Notice that the dict object has to use precisely the names stated in the documen
 
 - [Minimum acceptable TLS version](https://www.consul.io/docs/agent/options.html#tls_min_version)
   - Can be overridden with `CONSUL_TLS_MIN_VERSION` environment variable
-- Default value: tls12
+  - For versions < 1.12.0 use 'tls12,tls13,...'
+- Default value: TLSv1_2
 
 ### `consul_tls_cipher_suites`
 
@@ -665,23 +677,23 @@ auto_encrypt:
   ip_san: ["127.0.0.1"]
 ```
 
+### `consul_force_install`
+
+- If true, then always install consul. Otherwise, consul will only be installed either if
+  not present on the host, or if the installed version differs from `consul_version`.
+- The role does not handle the orchestration of a rolling update of servers followed by client nodes
+- Default value: false
+
 ### `consul_install_remotely`
 
 - Whether to download the files for installation directly on the remote hosts
 - This is the only option on Windows as WinRM is somewhat limited in this scope
 - Default value: false
 
-### `consul_install_upgrade`
-
-- Whether to [upgrade consul](https://www.consul.io/docs/upgrading.html) when a new version is specified
-- The role does not handle the orchestration of a rolling update of servers followed by client nodes
-- This option is not available for Windows, yet. (PR welcome)
-- Default value: false
-
 ### `consul_install_from_repo`
 
 - Boolean, whether to install consul from repository as opposed to installing the binary directly.
-- Supported distros: Amazon Linux, CentOS, Debian, Fedora, Ubuntu, Red Hat, Rocky.
+- Supported distros: Alma Linux, Amazon Linux, CentOS, Debian, Fedora, Ubuntu, Red Hat, Rocky.
 - Default value: false
 
 ### `consul_ui`
@@ -822,6 +834,14 @@ _Consul Enterprise Only (requires that CONSUL_ENTERPRISE is set to true)_
 
  - If the default config template does not suit your needs, you can replace it with your own.
  - Default value: `templates/config.json.j2`.
+
+### `consul_rolling_restart`
+ - Restarts consul node one by one to avoid service interruption on existing cluster (Unix platforms only).
+ - Default value: *false*
+
+ ### `consul_rolling_restart_delay_sec`
+ - Adds a delay between consul leave and node restart (Linux platforms only).
+ - Default value: 5
 
 #### Custom Configuration Section
 
@@ -1259,7 +1279,7 @@ redis
 
 ### Vagrant and VirtualBox
 
-See [examples/README_VAGRANT.md](https://github.com/ansible-community/ansible-consul/blob/master/examples/README_VAGRANT.md) for details on quick Vagrant deployments under VirtualBox for development, evaluation, testing, etc.
+See [examples/README_VAGRANT.md](https://github.com/ansible-collections/ansible-consul/blob/master/examples/README_VAGRANT.md) for details on quick Vagrant deployments under VirtualBox for development, evaluation, testing, etc.
 
 ## License
 
@@ -1271,6 +1291,6 @@ BSD
 
 ## Contributors
 
-Special thanks to the folks listed in [CONTRIBUTORS.md](https://github.com/ansible-community/ansible-consul/blob/master/CONTRIBUTORS.md) for their contributions to this project.
+Special thanks to the folks listed in [CONTRIBUTORS.md](https://github.com/ansible-collections/ansible-consul/blob/master/CONTRIBUTORS.md) for their contributions to this project.
 
-Contributions are welcome, provided that you can agree to the terms outlined in [CONTRIBUTING.md](https://github.com/ansible-community/ansible-consul/blob/master/CONTRIBUTING.md).
+Contributions are welcome, provided that you can agree to the terms outlined in [CONTRIBUTING.md](https://github.com/ansible-collections/ansible-consul/blob/master/CONTRIBUTING.md).

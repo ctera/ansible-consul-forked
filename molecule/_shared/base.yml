@@ -1,7 +1,7 @@
 ---
 scenario:
   test_sequence:
-    - lint
+    - dependency
     - syntax
     - create
     - prepare
@@ -11,31 +11,29 @@ scenario:
     - destroy
 dependency:
   name: galaxy
+  options:
+    requirements-file: requirements.yml
 driver:
   name: docker
-lint: |
-  set -e
-  yamllint .
-  ansible-lint
-  flake8
+role_name_check: 1
 provisioner:
   name: ansible
   config_options:
     defaults:
-      deprecation_warnings: False
+      deprecation_warnings: false
       callback_whitelist: timer,profile_tasks
       fact_caching: jsonfile
       fact_caching_connection: ./cache
       forks: 100
     connection:
-      pipelining: True
+      pipelining: true
   playbooks:
     prepare: ../_shared/prepare.yml
     converge: ../_shared/converge.yml
+    verify: ../_shared/verify.yml
   inventory:
     group_vars:
       consul_instances:
         consul_node_role: bootstrap
 verifier:
-  name: testinfra
-  directory: ../_shared/tests
+  name: ansible
