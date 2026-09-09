@@ -17,8 +17,8 @@ jobs:
 
       - name: Temporary fix for roles
         run: |
-          mkdir -p /home/runner/.ansible
-          ln -s /home/runner/work/ansible-consul/ /home/runner/.ansible/roles
+          mkdir -p /home/runner/.ansible/roles
+          ln -s /home/runner/work/ansible-consul-forked/ansible-consul-forked /home/runner/.ansible/roles/ansible-consul
 
       - name: Lint Ansible Playbook
         uses: ansible/ansible-lint@v6
